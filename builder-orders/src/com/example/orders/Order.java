@@ -9,32 +9,29 @@ import java.util.List;
 public class Order {
     private String id;
     private String customerEmail;
-    private final List<OrderLine> lines = new ArrayList<>();
-    private Integer discountPercent; // 0..100 expected, but not enforced
+    private List<OrderLine> lines = new ArrayList<>();
+    private Integer discountPercent;
     private boolean expedited;
     private String notes;
 
-    public Order(String id, String customerEmail) {
-        this.id = id;
-        this.customerEmail = customerEmail;
-    }
-
-    public Order(String id, String customerEmail, Integer discountPercent) {
-        this(id, customerEmail);
-        this.discountPercent = discountPercent;
-    }
-
-    public void addLine(OrderLine line) { lines.add(line); }
-    public void setDiscountPercent(Integer discountPercent) { this.discountPercent = discountPercent; }
-    public void setExpedited(boolean expedited) { this.expedited = expedited; }
-    public void setNotes(String notes) { this.notes = notes; }
+    private Order() {}
 
     public String getId() { return id; }
     public String getCustomerEmail() { return customerEmail; }
-    public List<OrderLine> getLines() { return lines; } // leaks internal list
+    public List<OrderLine> getLines() { return new ArrayList<>(lines); } // deep copy
     public Integer getDiscountPercent() { return discountPercent; }
     public boolean isExpedited() { return expedited; }
     public String getNotes() { return notes; }
+    public String toString() {
+        return "Order{" +
+                "id='" + id + '\'' +
+                ", customerEmail='" + customerEmail + '\'' +
+                ", lines=" + lines +
+                ", discountPercent=" + discountPercent +
+                ", expedited=" + expedited +
+                ", notes='" + notes + '\'' +
+                '}';
+    }
 
     public int totalBeforeDiscount() {
         int sum = 0;
@@ -46,5 +43,69 @@ public class Order {
         int base = totalBeforeDiscount();
         if (discountPercent == null) return base;
         return base - (base * discountPercent / 100);
+    }
+
+    public static class OrderBuilder {
+        private String id;
+        private String customerEmail;
+        private Integer discountPercent;
+        private boolean expedited;
+        private String notes;
+        private final List<OrderLine> lines = new ArrayList<>();
+
+        public OrderBuilder withId(String id) {
+            this.id = id;
+            return this;
+        }
+
+        public OrderBuilder withCustomerEmail(String customerEmail) {
+            if (!PricingRules.isValidEmail(customerEmail)) {
+                throw new IllegalArgumentException("Invalid email");
+            }
+            this.customerEmail = customerEmail;
+            return this;
+        }
+
+        public OrderBuilder withDiscountPercent(Integer discountPercent) {
+            if (!PricingRules.isValidDiscount(discountPercent)) {
+                throw new IllegalArgumentException("Invalid discount percent");
+            }
+            this.discountPercent = discountPercent;
+            return this;
+        }
+
+        public OrderBuilder withExpedited(boolean expedited) {
+            this.expedited = expedited;
+            return this;
+        }
+
+        public OrderBuilder withNotes(String notes) {
+            this.notes = notes;
+            return this;
+        }
+
+        public OrderBuilder withLine(OrderLine line) {
+            lines.add(line);
+            return this;
+        }
+
+        public OrderBuilder withLines(List<OrderLine> lines) {
+            if (lines != null) this.lines.addAll(lines);
+            return this;
+        }
+
+        public Order build() {
+            if (id == null || customerEmail == null) {
+                throw new IllegalStateException("Missing required fields");
+            }
+            Order order = new Order();
+            order.id = this.id;
+            order.customerEmail = this.customerEmail;
+            order.discountPercent = this.discountPercent;
+            order.expedited = this.expedited;
+            order.notes = this.notes;
+            order.lines = new ArrayList<>(this.lines);
+            return order;
+        }
     }
 }
